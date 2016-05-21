@@ -1,5 +1,6 @@
 package br.com.munif.clientesoap;
 
+import android.app.ProgressDialog;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -12,14 +13,16 @@ import android.widget.TextView;
 
 import org.ksoap2.SoapEnvelope;
 import org.ksoap2.serialization.SoapObject;
-import org.ksoap2.serialization.SoapPrimitive;
 import org.ksoap2.serialization.SoapSerializationEnvelope;
 import org.ksoap2.transport.HttpTransportSE;
+
+import java.io.IOException;
 
 public class ClienteSoap extends AppCompatActivity implements View.OnClickListener{
 
     private EditText et;
     private TextView tv;
+    private ProgressDialog progressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,19 +35,13 @@ public class ClienteSoap extends AppCompatActivity implements View.OnClickListen
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_cliente_soap, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
@@ -63,35 +60,49 @@ public class ClienteSoap extends AppCompatActivity implements View.OnClickListen
 
     class ConsultaCep extends AsyncTask<String,String,String>{
 
-        private static final String SOAP_ACTION = "https://apps.correios.com.br/SigepMasterJPA/AtendeClienteService/AtendeClientePort/consultaCEP";
         private static final String METHOD_NAME = "consultaCEP";
         private static final String NAMESPACE = "http://cliente.bean.master.sigep.bsb.correios.com.br/";
         private static final String URL = "https://apps.correios.com.br/SigepMasterJPA/AtendeClienteService/AtendeCliente";
+        public static final String CEP = "cep";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            progressDialog = ProgressDialog.show(ClienteSoap.this, getResources()
+                    .getString(R.string.app_name), "Buscando cep nos correios...");
+            progressDialog.setCancelable(false);
+            progressDialog.setCanceledOnTouchOutside(false);
+        }
 
         @Override
         protected String doInBackground(String... params) {
-            SoapObject request = new SoapObject(NAMESPACE, METHOD_NAME);
-            request.addProperty("cep", params[0]);
-            SoapSerializationEnvelope envelope = new SoapSerializationEnvelope(
-                    SoapEnvelope.VER11);
-            envelope.setOutputSoapObject(request);
+            SoapObject cliente = new SoapObject(NAMESPACE, METHOD_NAME);
+            cliente.addProperty(CEP, params[0]);
+            SoapSerializationEnvelope envelope = new SoapSerializationEnvelope(SoapEnvelope.VER11);
+            envelope.bodyOut = cliente;
+            HttpTransportSE httpTransportSE = new HttpTransportSE(URL);
+            String result = "";
             try {
-                HttpTransportSE androidHttpTransport = new HttpTransportSE(URL);
-                androidHttpTransport.call(SOAP_ACTION, envelope);
-                SoapPrimitive result = (SoapPrimitive) envelope
+                httpTransportSE.call("", envelope);
+                SoapObject response = (SoapObject) envelope
                         .getResponse();
-                publishProgress(result.toString());
-
+                result = response.toString();
             } catch (Exception e) {
                 e.printStackTrace();
-                publishProgress(e.toString());
+                result = "ERROR";
             }
-            return envelope.toString();
+
+            return result;
         }
 
         @Override
         protected void onProgressUpdate(String... values) {
-            tv.setText(values[0]);
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            progressDialog.dismiss();
+            tv.setText(s);
         }
     }
 
